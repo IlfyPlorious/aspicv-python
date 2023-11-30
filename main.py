@@ -2,8 +2,8 @@ import cv2
 import numpy as np
 
 kernel = np.ones((5, 5), np.uint8)
-img1 = cv2.imread('c.jpg')
-img = cv2.imread('c.jpg', 0)
+img1 = cv2.imread('im/c1.png')
+img = cv2.imread('im/c1.png', 0)
 gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
 
 ret, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY)
@@ -62,6 +62,7 @@ if contours:
     # Run Hough on edge detected image
     lines = cv2.HoughLinesP(edges, rho, theta, threshold, np.array([]),
                             min_line_length, max_line_gap)
+
     # Sortarea liniilor în funcție de lungime (de la cea mai lungă la cea mai scurtă)
     lines = sorted(lines, key=lambda line: np.linalg.norm(np.array([line[0][0] - line[0][2], line[0][1] - line[0][3]])),
                    reverse=True)
