@@ -1,16 +1,21 @@
-import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 from skimage import color
 
-from utils.custom_hough_transform import get_masked_median, compute_hough_space, compute_maximums_vector
-from utils.filters import otsu_threshold, apply_median_filter, get_image_contours
+from utils.custom_hough_transform import compute_hough_space, compute_maximums_vector
+from utils.filters import otsu_threshold, get_image_contours
 
 img = plt.imread('im/c1.png')
 
 img = color.rgb2gray(img[:, :, :3]) * 255
 plt.figure()
 plt.imshow(img, cmap="gray")
+
+h, w = img.shape
+img = img[h // 3:2 * h // 3, w // 3: 2 * w // 3]
+plt.figure()
+plt.title("cropped")
+plt.imshow(img)
 
 h, _ = np.histogram(img, bins=256, range=(0, 256), density=False)
 
@@ -28,16 +33,20 @@ h, w = contoured_img.shape
 
 hough_space = compute_hough_space(contoured_img, area=1)
 plt.figure()
-plt.imshow(hough_space)
+plt.title("hough space")
+plt.imshow(hough_space * 100)
 # first element is the distance r
 # second element is the angle theta
 # third element represents how many pixels fit the line defined by r and theta
-lines = compute_maximums_vector(hough_space, avg_mask=np.array([[1]]), maximums_to_return=6)
+lines = compute_maximums_vector(hough_space * 100, maximums_to_return=20,
+                                value_sensitivity=0)
 
 print(lines)
 
 draw_h, draw_w = contoured_img.shape
-draw_img = contoured_img.copy()
+draw_img = contoured_img.copy().astype(np.uint32)
+
+line_count = 2
 
 for line in lines:
     # r = 87
@@ -49,11 +58,15 @@ for line in lines:
             y = int((r - x * np.cos(theta)) / np.sin(theta))
 
             if 0 < y < draw_h:
-                draw_img[x, y] = 5
+                draw_img[x, y] = line_count
         except:
             pass
 
+    line_count += 1
+
 plt.figure()
+plt.title("Draw image")
 plt.imshow(draw_img)
+plt.colorbar()
 
 plt.show()

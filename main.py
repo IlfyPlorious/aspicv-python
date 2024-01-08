@@ -1,4 +1,5 @@
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 
 kernel = np.ones((5, 5), np.uint8)
@@ -77,6 +78,11 @@ if contours:
     # Draw the lines on the original image
     lines_edges = cv2.addWeighted(crop, 0.8, line_image, 1, 0)
 
-    cv2.imshow('Line Image', line_image)
-    cv2.imshow('Cropped Region', crop)
-    cv2.imshow('Lines on Cropped Region', lines_edges)
+    plt.figure()
+    plt.imshow(line_image)
+    plt.figure()
+    plt.imshow(crop)
+    plt.figure()
+    plt.imshow(lines_edges)
+
+plt.show()
