@@ -4,7 +4,7 @@ import numpy as np
 def setup_accumulator(img, degrees_accuracy):
     img_h, img_w = img.shape
     h = int(np.ceil(np.sqrt(img_h ** 2 + img_w ** 2)))
-    w = 180 // degrees_accuracy
+    w = 180
 
     return np.zeros((h, w))
 
@@ -32,7 +32,7 @@ def compute_window_for_angle(real_angle, window_size=3):
     return window / np.sum(window)
 
 
-def compute_hough_space(img, area=3, degrees_accuracy=1):
+def compute_hough_space(img, degrees_accuracy=1):
     """
      ideally the image is black and white
      not grayscale, where lines are defined with 1 (255)
@@ -56,19 +56,22 @@ def compute_hough_space(img, area=3, degrees_accuracy=1):
     window_threshold = 0.4
     radius = (window_size - 1) // 2
     img = img.astype(np.int32)
-    for line in range(radius, h - radius, area):
-        for column in range(radius, w - radius, area):
+    for line in range(radius, h - radius):
+        for column in range(radius, w - radius):
             if img[line, column] > 0:
                 for theta in theta_angles:
-                    real_angle = theta + np.pi / 2
-                    weight_window = compute_window_for_angle(real_angle, window_size)
-                    window = img[line - radius: line + radius + 1,
-                             column - radius: column + radius + 1] * weight_window
-                    window_density = np.sum(window)
-                    if window_density > window_threshold:
-                        r = int(line * np.cos(theta) + column * np.sin(theta))
-                        t = int(theta * 180 / np.pi) - 1
-                        accumulator[r, t] += 1
+                    # real_angle = theta + np.pi / 2
+                    # weight_window = compute_window_for_angle(real_angle, window_size)
+                    # window = img[line - radius: line + radius + 1,
+                    #          column - radius: column + radius + 1] * weight_window
+                    # window_density = np.sum(window)
+                    # if window_density > window_threshold:
+                    #     r = int(line * np.cos(theta) + column * np.sin(theta))
+                    #     t = int(theta * 180 / np.pi) - 1
+                    #     accumulator[r, t] += 1
+                    r = int(line * np.cos(theta) + column * np.sin(theta))
+                    t = int(theta * 180 / np.pi) - 1
+                    accumulator[r, t] += 1
 
     return accumulator
 
