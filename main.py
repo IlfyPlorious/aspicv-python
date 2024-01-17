@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 from matplotlib import pyplot as plt
 from skimage import color
@@ -38,125 +40,143 @@ def draw_lines(img, lines):
     plt.colorbar()
 
 
-img = plt.imread('im/c2.png')
+img = plt.imread('images/c2.png')
 
-img = color.rgb2gray(img[:, :, :3]) * 255
-plt.figure()
-plt.imshow(img, cmap="gray")
+def compute_hour(img, show_plots=False):
+    img = color.rgb2gray(img[:, :, :3]) * 255
 
-h, w = img.shape
-img = img[h // 3:2 * h // 3, w // 3: 2 * w // 3]
-plt.figure()
-plt.title("cropped")
-plt.imshow(img, cmap="gray")
+    if show_plots:
+        plt.figure()
+        plt.imshow(img, cmap="gray")
 
-h, _ = np.histogram(img, bins=256, range=(0, 256), density=False)
+    h, w = img.shape
+    img = img[h // 3:2 * h // 3, w // 3: 2 * w // 3]
 
-plt.figure()
-plt.plot(h)
+    if show_plots:
+        plt.figure()
+        plt.title("cropped")
+        plt.imshow(img, cmap="gray")
 
-print(otsu_threshold(h))
+    h, _ = np.histogram(img, bins=256, range=(0, 256), density=False)
 
-contoured_img = get_image_contours(img)
-contour_histo, _ = np.histogram(contoured_img, bins=256, range=(0, 256), density=False)
-threshold = otsu_threshold(contour_histo)
-contoured_img = contoured_img > threshold
+    if show_plots:
+        plt.figure()
+        plt.plot(h)
 
-h, w = contoured_img.shape
-contoured_img = contoured_img[5:h - 5 + 1, 5:w - 5 + 1]
-h, w = contoured_img.shape
+    # print(otsu_threshold(h))
 
-# hourly order not trigonometric
-# quarter one starts at 12 and ends at 3
-quarter_1 = contoured_img[: h // 2 + 1, w // 2:]
-quarter_2 = contoured_img[h // 2:, w // 2:]
-quarter_3 = contoured_img[h // 2:, : w // 2 + 1]
-quarter_4 = contoured_img[: h // 2 + 1, : w // 2 + 1]
+    contoured_img = get_image_contours(img)
+    contour_histo, _ = np.histogram(contoured_img, bins=256, range=(0, 256), density=False)
+    threshold = otsu_threshold(contour_histo)
+    contoured_img = contoured_img > threshold
 
-plt.figure()
-plt.title("quarter1")
-plt.imshow(quarter_1, cmap="gray")
+    h, w = contoured_img.shape
+    contoured_img = contoured_img[5:h - 5 + 1, 5:w - 5 + 1]
+    h, w = contoured_img.shape
 
-plt.figure()
-plt.title("quarter2")
-plt.imshow(quarter_2, cmap="gray")
+    # hourly order not trigonometric
+    # quarter one starts at 12 and ends at 3
+    quarter_1 = contoured_img[: h // 2 + 1, w // 2:]
+    quarter_2 = contoured_img[h // 2:, w // 2:]
+    quarter_3 = contoured_img[h // 2:, : w // 2 + 1]
+    quarter_4 = contoured_img[: h // 2 + 1, : w // 2 + 1]
 
-plt.figure()
-plt.title("quarter3")
-plt.imshow(quarter_3, cmap="gray")
+    if show_plots:
+        plt.figure()
+        plt.title("quarter1")
+        plt.imshow(quarter_1, cmap="gray")
 
-plt.figure()
-plt.title("quarter4")
-plt.imshow(quarter_4, cmap="gray")
+        plt.figure()
+        plt.title("quarter2")
+        plt.imshow(quarter_2, cmap="gray")
 
-h, w = contoured_img.shape
-contoured_img = contoured_img[5:h - 5 + 1, 5:w - 5 + 1]
-plt.figure()
-plt.title("contoured image")
-plt.imshow(contoured_img, cmap='gray')
+        plt.figure()
+        plt.title("quarter3")
+        plt.imshow(quarter_3, cmap="gray")
 
-quarter_1 = Quarter(1, quarter_1)
-quarter_2 = Quarter(2, quarter_2)
-quarter_3 = Quarter(3, quarter_3)
-quarter_4 = Quarter(4, quarter_4)
-quarters = [quarter_1, quarter_2, quarter_3, quarter_4]
-# sort quarters by number of pixels
-# my assumption is that the minute line
-# and the hour line will have the most pixels
-# as usually those are the thicker ones
-quarters.sort(key=lambda quarter: np.sum(quarter.data), reverse=True)
-# pick the first 2 with the maximum number of pixels
-quarters = quarters[:2]
+        plt.figure()
+        plt.title("quarter4")
+        plt.imshow(quarter_4, cmap="gray")
 
-# compute the hough space for each quarter
-for quarter in quarters:
-    hough_space = compute_hough_space(quarter.data)
+    h, w = contoured_img.shape
+    contoured_img = contoured_img[5:h - 5 + 1, 5:w - 5 + 1]
 
-    plt.figure()
-    plt.title(f"hough space orig quarter {quarter.quarter}")
-    plt.imshow(hough_space)
-    plt.colorbar()
+    if show_plots:
+        plt.figure()
+        plt.title("contoured image")
+        plt.imshow(contoured_img, cmap='gray')
 
-    # get rid of small accumulator numbers
-    # which should not represent our lines
-    # lines are found in the accumulators biggest numbers
-    hough_space_threshold = np.max(hough_space) / 2
-    hh, hw = hough_space.shape
-    for line in range(hh):
-        for column in range(hw):
-            if hough_space[line, column] < hough_space_threshold:
-                hough_space[line, column] = 0
+    quarter_1 = Quarter(1, quarter_1)
+    quarter_2 = Quarter(2, quarter_2)
+    quarter_3 = Quarter(3, quarter_3)
+    quarter_4 = Quarter(4, quarter_4)
+    quarters = [quarter_1, quarter_2, quarter_3, quarter_4]
+    # sort quarters by number of pixels
+    # my assumption is that the minute line
+    # and the hour line will have the most pixels
+    # as usually those are the thicker ones
+    quarters.sort(key=lambda quarter: np.sum(quarter.data), reverse=True)
+    # pick the first 2 with the maximum number of pixels
+    quarters = quarters[:2]
 
-    # to increase the peaks and decrease the lows in
-    # the hough space, we will dilate it
-    hough_space = cv2.dilate(hough_space, np.ones((3, 3)))
+    # compute the hough space for each quarter
+    for quarter in quarters:
+        hough_space = compute_hough_space(quarter.data)
 
-    # remember the hough_space in the objects variable
-    quarter.hough_space = hough_space
+        if show_plots:
+            plt.figure()
+            plt.title(f"hough space orig quarter {quarter.quarter}")
+            plt.imshow(hough_space)
+            plt.colorbar()
 
-    plt.figure()
-    plt.title(f"hough space thresholded and dilated quarter {quarter.quarter}")
-    plt.imshow(hough_space)
-    plt.colorbar()
+        # get rid of small accumulator numbers
+        # which should not represent our lines
+        # lines are found in the accumulators biggest numbers
+        hough_space_threshold = np.max(hough_space) / 2
+        hh, hw = hough_space.shape
+        for line in range(hh):
+            for column in range(hw):
+                if hough_space[line, column] < hough_space_threshold:
+                    hough_space[line, column] = 0
 
-    # first element is the distance r
-    # second element is the angle theta
-    # third element represents how many pixels fit the line defined by r and theta
+        # to increase the peaks and decrease the lows in
+        # the hough space, we will dilate it
+        hough_space = cv2.dilate(hough_space, np.ones((3, 3)))
 
-    lines = compute_maximums_vector(hough_space, maximums_to_return=5,
-                                    value_sensitivity=15)
+        # remember the hough_space in the objects variable
+        quarter.hough_space = hough_space
 
-    print(lines)
-    quarter.lines = lines
+        if show_plots:
+            plt.figure()
+            plt.title(f"hough space thresholded and dilated quarter {quarter.quarter}")
+            plt.imshow(hough_space)
+            plt.colorbar()
 
-# usually the minute line is longer
-# and sometimes thicker, so the most pixels
-# will be the first in quarters list
-hour = compute_hour_from_quarter(quarters[1])
-minutes = compute_minutes_from_quarter(quarters[0])
-print(f"Most probable time: {hour}:{minutes}")
-hour = compute_hour_from_quarter(quarters[0])
-minutes = compute_minutes_from_quarter(quarters[1])
-print(f"Least probable time: {hour}:{minutes}")
+        # first element is the distance r
+        # second element is the angle theta
+        # third element represents how many pixels fit the line defined by r and theta
 
-plt.show()
+        lines = compute_maximums_vector(hough_space, maximums_to_return=5,
+                                        value_sensitivity=15)
+
+        # print(lines)
+        quarter.lines = lines
+
+    # usually the minute line is longer
+    # and sometimes thicker, so the most pixels
+    # will be the first in quarters list
+    hour = compute_hour_from_quarter(quarters[1])
+    minutes = compute_minutes_from_quarter(quarters[0])
+    print(f"Most probable time: {hour}:{minutes}")
+    hour = compute_hour_from_quarter(quarters[0])
+    minutes = compute_minutes_from_quarter(quarters[1])
+    print(f"Least probable time: {hour}:{minutes}")
+
+images_path = os.path.join(os.curdir, "images")
+for image_path in os.listdir(images_path):
+    full_image_path = os.path.join(images_path, image_path)
+    image = plt.imread(full_image_path)
+    print(f"Compute hour for {image_path}")
+    compute_hour(image)
+
+# plt.show()

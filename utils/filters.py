@@ -42,7 +42,7 @@ def apply_median_filter(img, kernel_size=5):
             img[line, column] = median
 
 
-def get_image_contours(img=np.zeros((1, 1))):
+def get_image_contours(img=np.zeros((1, 1)), show_plots=False):
     h, w = img.shape
 
     bordered_image = np.zeros((h + 1, w + 1))
@@ -56,7 +56,8 @@ def get_image_contours(img=np.zeros((1, 1))):
             fx[line, column] = bordered_image[line, column] - bordered_image[line + 1, column]
             fy[line, column] = bordered_image[line, column] - bordered_image[line, column + 1]
 
-    plt.figure(), plt.imshow(fx, cmap='gray'), plt.colorbar(), plt.show()
-    plt.figure(), plt.imshow(fy, cmap='gray'), plt.colorbar(), plt.show()
+    if show_plots:
+        plt.figure(), plt.imshow(fx, cmap='gray'), plt.colorbar(), plt.show()
+        plt.figure(), plt.imshow(fy, cmap='gray'), plt.colorbar(), plt.show()
 
     return np.abs(fx) + np.abs(fy)
