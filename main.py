@@ -1,88 +1,162 @@
-import cv2
-import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import pyplot as plt
+from skimage import color
 
-kernel = np.ones((5, 5), np.uint8)
-img1 = cv2.imread('im/c1.png')
-img = cv2.imread('im/c1.png', 0)
-gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+import cv2
 
-ret, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY)
-
-# Create mask
-height, width = img.shape
-mask = np.zeros((height, width), np.uint8)
-edges = cv2.Canny(thresh, 100, 200)
-
-# cv2.imshow('detected ',gray)
-cimg = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1.2, 100)
-
-# Draw circles on the mask
-for i in circles[0, :]:
-    i = np.round(i).astype("int")  # Convert circle coordinates to integers
-    i[2] = i[2] + 4
-    # Draw on mask
-    cv2.circle(mask, (i[0], i[1]), i[2], (255, 255, 255), thickness=-1)
+from utils.calculus import compute_hour_from_quarter, compute_minutes_from_quarter
+from utils.custom_hough_transform import compute_hough_space, compute_maximums_vector
+from utils.filters import otsu_threshold, get_image_contours
+from utils.quarter_class import Quarter
 
 
-masked_data = cv2.bitwise_and(img1, img1, mask=mask)
+def draw_lines(img, lines):
+    draw_h, draw_w = img.shape
+    draw_img = img.copy().astype(np.uint32)
 
-# Apply Threshold
-_, thresh = cv2.threshold(mask, 1, 255, cv2.THRESH_BINARY)
+    line_count = 2
 
-# Find Contour
-contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for line in lines:
+        # r = 87
+        r = line[0]
+        # theta = 75 * np.pi / 180
+        theta = line[1] * np.pi / 180
+        for x in range(draw_w):
+            try:
+                y = int((r - x * np.cos(theta)) / np.sin(theta))
 
-# Check if there's at least one contour
-if contours:
-    # Get the bounding box of the first contour
-    x, y, w, h = cv2.boundingRect(contours[0])
+                if 0 < y < draw_h:
+                    draw_img[x, y] = line_count
+            except:
+                pass
 
-    # Crop the region of interest (ROI)
-    crop = masked_data[y + 30:y + h - 30, x + 30:x + w - 30]
-
-    # Apply Gaussian Blur to the cropped region
-    kernel_size = 5
-    blur_crop = cv2.GaussianBlur(crop, (kernel_size, kernel_size), 0)
-
-    # Apply Canny edge detection to the blurred crop
-    low_threshold = 50
-    high_threshold = 150
-    edges = cv2.Canny(blur_crop, low_threshold, high_threshold)
-
-    # Parameters for Hough Lines
-    rho =0.5
-    theta = np.pi / 180
-    threshold = 30
-    min_line_length = 100
-    max_line_gap = 10
-
-    line_image = np.copy(crop) * 0
-
-    # Run Hough on edge detected image
-    lines = cv2.HoughLinesP(edges, rho, theta, threshold, np.array([]),
-                            min_line_length, max_line_gap)
-
-    # Sortarea liniilor în funcție de lungime (de la cea mai lungă la cea mai scurtă)
-    lines = sorted(lines, key=lambda line: np.linalg.norm(np.array([line[0][0] - line[0][2], line[0][1] - line[0][3]])),
-                   reverse=True)
-
-    # afisarea primelor k linii; nu prea merge ceva general pentru toate pozele
-    for line in lines[:4]:
-        for x1, y1, x2, y2 in line:
-            cv2.line(line_image, (x1, y1), (x2, y2), (255, 0, 0), 5)
-
-
-
-    # Draw the lines on the original image
-    lines_edges = cv2.addWeighted(crop, 0.8, line_image, 1, 0)
+        line_count += 1
 
     plt.figure()
-    plt.imshow(line_image)
+    plt.title("Draw image")
+    plt.imshow(draw_img)
+    plt.colorbar()
+
+
+img = plt.imread('im/c2.png')
+
+img = color.rgb2gray(img[:, :, :3]) * 255
+plt.figure()
+plt.imshow(img, cmap="gray")
+
+h, w = img.shape
+img = img[h // 3:2 * h // 3, w // 3: 2 * w // 3]
+plt.figure()
+plt.title("cropped")
+plt.imshow(img, cmap="gray")
+
+h, _ = np.histogram(img, bins=256, range=(0, 256), density=False)
+
+plt.figure()
+plt.plot(h)
+
+print(otsu_threshold(h))
+
+contoured_img = get_image_contours(img)
+contour_histo, _ = np.histogram(contoured_img, bins=256, range=(0, 256), density=False)
+threshold = otsu_threshold(contour_histo)
+contoured_img = contoured_img > threshold
+
+h, w = contoured_img.shape
+contoured_img = contoured_img[5:h - 5 + 1, 5:w - 5 + 1]
+h, w = contoured_img.shape
+
+# hourly order not trigonometric
+# quarter one starts at 12 and ends at 3
+quarter_1 = contoured_img[: h // 2 + 1, w // 2:]
+quarter_2 = contoured_img[h // 2:, w // 2:]
+quarter_3 = contoured_img[h // 2:, : w // 2 + 1]
+quarter_4 = contoured_img[: h // 2 + 1, : w // 2 + 1]
+
+plt.figure()
+plt.title("quarter1")
+plt.imshow(quarter_1, cmap="gray")
+
+plt.figure()
+plt.title("quarter2")
+plt.imshow(quarter_2, cmap="gray")
+
+plt.figure()
+plt.title("quarter3")
+plt.imshow(quarter_3, cmap="gray")
+
+plt.figure()
+plt.title("quarter4")
+plt.imshow(quarter_4, cmap="gray")
+
+h, w = contoured_img.shape
+contoured_img = contoured_img[5:h - 5 + 1, 5:w - 5 + 1]
+plt.figure()
+plt.title("contoured image")
+plt.imshow(contoured_img, cmap='gray')
+
+quarter_1 = Quarter(1, quarter_1)
+quarter_2 = Quarter(2, quarter_2)
+quarter_3 = Quarter(3, quarter_3)
+quarter_4 = Quarter(4, quarter_4)
+quarters = [quarter_1, quarter_2, quarter_3, quarter_4]
+# sort quarters by number of pixels
+# my assumption is that the minute line
+# and the hour line will have the most pixels
+# as usually those are the thicker ones
+quarters.sort(key=lambda quarter: np.sum(quarter.data), reverse=True)
+# pick the first 2 with the maximum number of pixels
+quarters = quarters[:2]
+
+# compute the hough space for each quarter
+for quarter in quarters:
+    hough_space = compute_hough_space(quarter.data)
+
     plt.figure()
-    plt.imshow(crop)
+    plt.title(f"hough space orig quarter {quarter.quarter}")
+    plt.imshow(hough_space)
+    plt.colorbar()
+
+    # get rid of small accumulator numbers
+    # which should not represent our lines
+    # lines are found in the accumulators biggest numbers
+    hough_space_threshold = np.max(hough_space) / 2
+    hh, hw = hough_space.shape
+    for line in range(hh):
+        for column in range(hw):
+            if hough_space[line, column] < hough_space_threshold:
+                hough_space[line, column] = 0
+
+    # to increase the peaks and decrease the lows in
+    # the hough space, we will dilate it
+    hough_space = cv2.dilate(hough_space, np.ones((3, 3)))
+
+    # remember the hough_space in the objects variable
+    quarter.hough_space = hough_space
+
     plt.figure()
-    plt.imshow(lines_edges)
+    plt.title(f"hough space thresholded and dilated quarter {quarter.quarter}")
+    plt.imshow(hough_space)
+    plt.colorbar()
+
+    # first element is the distance r
+    # second element is the angle theta
+    # third element represents how many pixels fit the line defined by r and theta
+
+    lines = compute_maximums_vector(hough_space, maximums_to_return=5,
+                                    value_sensitivity=15)
+
+    print(lines)
+    quarter.lines = lines
+
+# usually the minute line is longer
+# and sometimes thicker, so the most pixels
+# will be the first in quarters list
+hour = compute_hour_from_quarter(quarters[1])
+minutes = compute_minutes_from_quarter(quarters[0])
+print(f"Most probable time: {hour}:{minutes}")
+hour = compute_hour_from_quarter(quarters[0])
+minutes = compute_minutes_from_quarter(quarters[1])
+print(f"Least probable time: {hour}:{minutes}")
 
 plt.show()
